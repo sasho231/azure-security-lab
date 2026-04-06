@@ -25,7 +25,7 @@ jobs:
       # Step 1: Check out the code from GitHub onto the runner
       # The runner is a temporary Ubuntu VM GitHub spins up for us
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # Step 2: Install Bicep CLI on the runner
       # Same tool you installed locally - now running in the pipeline
@@ -111,7 +111,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # Login to Azure using Workload Identity Federation
       # No passwords or secrets stored in GitHub
