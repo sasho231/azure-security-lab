@@ -1,0 +1,142 @@
+name: Bicep Validate and Security Scan
+
+# Triggers:
+# - Every push to any branch
+# - Every pull request targeting main
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # ============================================================
+  # JOB 1: Validate and Security Scan
+  # Runs on every push and PR
+  # No Azure credentials needed
+  # ============================================================
+  validate:
+    name: Lint, Build and Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the code from GitHub onto the runner
+      # The runner is a temporary Ubuntu VM GitHub spins up for us
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Install Bicep CLI on the runner
+      # Same tool you installed locally - now running in the pipeline
+      - name: Install Bicep CLI
+        run: |
+          curl -Lo bicep https://github.com/Azure/bicep/releases/latest/download/bicep-linux-x64
+          chmod +x ./bicep
+          sudo mv ./bicep /usr/local/bin/bicep
+          bicep --version
+
+      # Step 3: Lint all Bicep files
+      # Finds every .bicep file and runs bicep lint on each one
+      # Fails the pipeline if any lint errors are found
+      - name: Lint Bicep files
+        run: |
+          echo "Linting all Bicep files..."
+          find . -name "*.bicep" | while read file; do
+            echo "Linting: $file"
+            bicep lint "$file"
+          done
+          echo "All Bicep files linted successfully"
+
+      # Step 4: Build all Bicep files
+      # Compiles each .bicep file to ARM JSON
+      # Fails if any file has compilation errors
+      - name: Build Bicep files
+        run: |
+          echo "Building all Bicep files..."
+          find . -name "*.bicep" | while read file; do
+            echo "Building: $file"
+            bicep build "$file"
+          done
+          echo "All Bicep files built successfully"
+
+      # Step 5: Run Checkov security scan
+      # Scans all IaC files for security misconfigurations
+      # --soft-fail means it reports issues but doesn't fail pipeline yet
+      # We use soft-fail in Phase 1 so we can see findings without blocking
+      # In a real environment you would remove --soft-fail
+      - name: Checkov Security Scan
+        run: |
+          pip3 install checkov --quiet
+          echo "Running Checkov security scan..."
+          checkov -d infra/ \
+            --framework bicep \
+            --output cli \
+            --soft-fail \
+            --compact
+        continue-on-error: false
+
+      # Step 6: Upload Checkov results as an artifact
+      # This saves the scan results so you can download and review them
+      # from the GitHub Actions UI after the pipeline runs
+      - name: Upload Checkov results
+        if: always()
+        run: |
+          pip3 install checkov --quiet
+          checkov -d infra/ \
+            --framework bicep \
+            --output sarif \
+            --soft-fail \
+            > checkov-results.sarif 2>/dev/null || true
+
+      - name: Upload SARIF results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: checkov-results
+          path: checkov-results.sarif
+
+  # ============================================================
+  # JOB 2: What-If Deployment
+  # Only runs on push to main branch
+  # Requires Azure credentials (we add these next)
+  # Shows what WOULD change in Azure without actually changing it
+  # ============================================================
+  what-if:
+    name: Azure What-If Deployment
+    runs-on: ubuntu-latest
+    needs: validate
+    # Only run on main branch, not on PRs
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Login to Azure using Workload Identity Federation
+      # No passwords or secrets stored in GitHub
+      # We configure this in the next step
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Install Bicep on this runner too
+      - name: Install Bicep CLI
+        run: |
+          curl -Lo bicep https://github.com/Azure/bicep/releases/latest/download/bicep-linux-x64
+          chmod +x ./bicep
+          sudo mv ./bicep /usr/local/bin/bicep
+
+      # What-If: shows planned changes without deploying
+      # Like terraform plan but for Bicep
+      # Scope is tenant because management groups live at tenant level
+      - name: Run What-If deployment
+        run: |
+          az deployment tenant what-if \
+            --location northeurope \
+            --template-file infra/modules/management-groups/main.bicep \
+            --parameters infra/parameters/lab.bicepparam \
+            --no-prompt

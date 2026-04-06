@@ -1,0 +1,16 @@
+# Dependabot configuration
+# Automatically checks for vulnerable dependencies and outdated actions
+# Docs: https://docs.github.com/en/code-security/dependabot
+
+version: 2
+
+updates:
+  # Keep GitHub Actions versions up to date
+  # This is important - outdated actions can have security vulnerabilities
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"

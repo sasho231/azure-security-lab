@@ -1,0 +1,28 @@
+# Checkov configuration for azure-security-lab
+# Docs: https://www.checkov.io/2.Basics/CLI%20Command%20Reference.html
+
+# Frameworks to scan
+framework:
+  - bicep
+  - terraform
+
+# Directory to scan
+directory:
+  - infra
+  - terraform
+
+# Output format
+output:
+  - cli
+
+# Checks to skip in the lab environment
+# These are skipped because they apply to resources we haven't built yet
+# As we build more phases, we remove items from this skip list
+skip-check:
+  - CKV_AZURE_131   # Ensure that Azure Function App authentication is enabled (not used yet)
+
+# Minimum severity to report
+# INFO, LOW, MEDIUM, HIGH, CRITICAL
+check:
+  - HIGH
+  - CRITICAL
