@@ -8,6 +8,13 @@ on:
     branches:
       - main
 
+# These permissions are required for Workload Identity Federation
+# id-token: write allows the pipeline to request an OIDC token from GitHub
+# contents: read allows the pipeline to read your repository code
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   validate:
     name: Lint, Build and Security Scan
@@ -42,9 +49,6 @@ jobs:
           done
           echo "All Bicep files built successfully"
 
-      # Checkov scans IaC files for security misconfigurations
-      # Management groups have minimal checks - more findings appear
-      # in Phase 4 when we deploy storage, VMs, Key Vault etc.
       - name: Checkov Security Scan
         run: |
           pip3 install checkov --quiet
@@ -59,7 +63,6 @@ jobs:
           echo "Checkov scan complete"
           echo "============================================"
 
-      # Summary of what passed in this pipeline run
       - name: Pipeline Summary
         if: always()
         run: |
@@ -80,10 +83,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      # Workload Identity Federation - no secrets stored in GitHub
-      # Azure trusts GitHub's OIDC token directly
-      # We configure this after Azure account is created
-      - name: Azure Login
+      # Workload Identity Federation in action:
+      # 1. GitHub generates a short-lived OIDC token for this run
+      # 2. azure/login sends it to Entra ID
+      # 3. Entra ID validates it against the federated credential we created
+      # 4. Entra ID issues an Azure access token (valid 15 min)
+      # 5. Pipeline uses that token for all subsequent az commands
+      # No secrets involved at any point
+      - name: Azure Login (Workload Identity Federation)
         uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -97,8 +104,9 @@ jobs:
           sudo mv ./bicep /usr/local/bin/bicep
 
       # What-If = terraform plan equivalent for Bicep
-      # Shows exactly what WOULD be created/modified/deleted
-      # without making any actual changes to Azure
+      # Connects to Azure, calculates what WOULD change
+      # if we deployed right now, shows the diff
+      # Does not create, modify or delete anything
       - name: Run What-If deployment
         run: |
           az deployment tenant what-if \
