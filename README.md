@@ -61,7 +61,7 @@ Tenant Root Group
 
 | Phase | Focus | Status |
 |-------|-------|--------|
-| 1 | Foundation — IaC discipline, CAF structure, CI/CD pipeline | 🔄 In Progress |
+| 1 | Foundation — IaC discipline, CAF structure, CI/CD pipeline | ✅ Complete |
 | 2 | Networking — Hub-spoke, Firewall, Bastion, Private Endpoints | ⬜ Planned |
 | 3 | DevSecOps — Security gates, OPA policy, shift-left enforcement | ⬜ Planned |
 | 4 | CSPM — Defender for Cloud, custom Azure Policy, MCSB hardening | ⬜ Planned |
