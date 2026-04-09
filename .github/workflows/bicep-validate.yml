@@ -109,7 +109,7 @@ jobs:
       # Does not create, modify or delete anything
       - name: Run What-If deployment
         run: |
-          az deployment tenant what-if \
+          az deployment tenant validate \
             --location northeurope \
             --template-file infra/modules/management-groups/main.bicep \
             --parameters infra/parameters/lab.bicepparam \
