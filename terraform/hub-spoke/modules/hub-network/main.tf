@@ -211,3 +211,4 @@ resource "azurerm_bastion_host" "hub" {
   tags = var.tags
 }
 # triggered
+
