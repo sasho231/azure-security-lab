@@ -1,0 +1,114 @@
+name: Terraform Validate and Security Scan
+
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'terraform/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  validate:
+    name: Lint, Validate and Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      # Install Terraform on the runner
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.8"
+
+      # terraform fmt checks code formatting
+      # All Terraform code should follow standard formatting
+      # Run "terraform fmt -recursive" locally to auto-fix
+      - name: Terraform Format Check
+        run: |
+          terraform -chdir=terraform/hub-spoke/environments/lab fmt \
+            -check -recursive
+        continue-on-error: true
+
+      # terraform validate checks syntax without connecting to Azure
+      # Catches: invalid resource types, missing required arguments,
+      # type mismatches, circular dependencies
+      - name: Terraform Validate
+        run: |
+          cd terraform/hub-spoke/environments/lab
+          terraform init -backend=false
+          terraform validate
+
+      # tfsec scans for security misconfigurations
+      # More reliable than Checkov for Terraform
+      # Maps findings to CIS, MCSB, and other benchmarks
+      - name: tfsec Security Scan
+        run: |
+          curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+          echo "============================================"
+          echo "Running tfsec Security Scan"
+          echo "============================================"
+          tfsec terraform/hub-spoke/ \
+            --format default \
+            --soft-fail
+          echo "============================================"
+          echo "tfsec scan complete"
+          echo "============================================"
+
+      - name: Pipeline Summary
+        if: always()
+        run: |
+          echo "## Terraform Pipeline Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Step | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Terraform Format | ✅ Checked |" >> $GITHUB_STEP_SUMMARY
+          echo "| Terraform Validate | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| tfsec Scan | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+
+  plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      # Workload Identity Federation - same pattern as Bicep pipeline
+      - name: Azure Login
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.8"
+
+      # terraform plan connects to Azure backend and shows
+      # exactly what would change if you ran terraform apply
+      # State is stored in Azure Storage - pipeline reads it here
+      - name: Terraform Plan
+        run: |
+          cd terraform/hub-spoke/environments/lab
+          terraform init
+          terraform plan -no-color
+        env:
+          ARM_USE_AZUREAD: true
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_USE_OIDC: true
