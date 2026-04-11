@@ -135,6 +135,7 @@ module "firewall" {
   environment         = var.environment
   firewall_subnet_id            = module.hub_network.firewall_subnet_id
   workload_subnet_id  = module.spoke_network.workload_subnet_id
+  app_subnet_id                 = module.spoke_network.app_subnet_id
   hub_vnet_cidr       = var.hub_vnet_cidr
   spoke_vnet_cidr                = var.spoke_vnet_cidr
   firewall_management_subnet_id = module.hub_network.firewall_management_subnet_id

@@ -111,13 +111,22 @@ write_files:
       WantedBy=multi-user.target
 
 runcmd:
-  # Set up Python virtual environment
+  # Create webapp directory
   - mkdir -p /opt/webapp
-  - python3 -m venv /opt/webapp/venv
-  - /opt/webapp/venv/bin/pip install flask gunicorn
+
+  # Install pip via HTTPS from PyPI bootstrap (bypasses apt)
+  - curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
+  - python3 /tmp/get-pip.py
+
+  # Install flask to system site-packages
+  - pip3 install flask --target /usr/lib/python3/dist-packages
 
   # Set permissions
-  - chown -R www-data:www-data /opt/webapp
+  - chown -R root:root /opt/webapp
+
+  # Update service to run as root with system python
+  - sed -i "s/User=www-data/User=root/" /etc/systemd/system/webapp.service
+  - sed -i "s|ExecStart=/opt/webapp/venv/bin/python app.py|ExecStart=/usr/bin/python3 app.py|" /etc/systemd/system/webapp.service
 
   # Enable and start the web application service
   - systemctl daemon-reload

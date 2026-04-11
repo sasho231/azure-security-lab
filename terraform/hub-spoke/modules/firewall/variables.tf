@@ -43,3 +43,8 @@ variable "firewall_management_subnet_id" {
   description = "AzureFirewallManagementSubnet ID - required for Basic SKU"
   type        = string
 }
+
+variable "app_subnet_id" {
+  description = "App subnet ID for route table association"
+  type        = string
+}

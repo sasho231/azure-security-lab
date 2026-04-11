@@ -65,7 +65,7 @@ resource "azurerm_firewall_policy_rule_collection_group" "lab" {
   }
 
   network_rule_collection {
-    name     = "nrc-allow-dns"
+    name     = "nrc-allow-outbound"
     priority = 200
     action   = "Allow"
 
@@ -75,6 +75,18 @@ resource "azurerm_firewall_policy_rule_collection_group" "lab" {
       source_addresses      = [var.hub_vnet_cidr, var.spoke_vnet_cidr]
       destination_addresses = ["168.63.129.16"]
       destination_ports     = ["53"]
+    }
+
+    # Allow all TCP outbound from spoke
+    # Broad rule to enable internet access via Firewall
+    # Will be tightened in Phase 4 with specific FQDN rules
+    # and DNS proxy enabled
+    rule {
+      name                  = "allow-all-outbound"
+      protocols             = ["TCP", "UDP"]
+      source_addresses      = [var.spoke_vnet_cidr]
+      destination_addresses = ["0.0.0.0/0"]
+      destination_ports     = ["*"]
     }
   }
 }
@@ -151,5 +163,12 @@ resource "azurerm_route_table" "spoke" {
 
 resource "azurerm_subnet_route_table_association" "spoke_workload" {
   subnet_id      = var.workload_subnet_id
+  route_table_id = azurerm_route_table.spoke.id
+}
+
+# Associate route table with app subnet
+# Ensures all VM traffic routes through Firewall
+resource "azurerm_subnet_route_table_association" "spoke_app" {
+  subnet_id      = var.app_subnet_id
   route_table_id = azurerm_route_table.spoke.id
 }
