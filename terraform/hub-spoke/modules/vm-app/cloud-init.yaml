@@ -1,0 +1,128 @@
+#cloud-config
+# Runs on first boot - installs and starts Flask web application
+# Environment: ${environment}
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - python3
+  - python3-pip
+  - python3-venv
+  - nginx
+  - git
+
+write_files:
+  # Flask application
+  - path: /opt/webapp/app.py
+    content: |
+      from flask import Flask, jsonify, request, render_template_string
+      import os
+      import datetime
+
+      app = Flask(__name__)
+
+      # Simple in-memory store for demo
+      items = [
+          {"id": 1, "name": "Item One", "created": "2026-01-01"},
+          {"id": 2, "name": "Item Two", "created": "2026-01-02"},
+      ]
+
+      HOME_PAGE = """
+      <!DOCTYPE html>
+      <html>
+      <head><title>Azure Security Lab - Web App</title></head>
+      <body>
+        <h1>Azure Security Lab</h1>
+        <p>Environment: ${environment}</p>
+        <p>This application is secured by:</p>
+        <ul>
+          <li>Azure Application Gateway + WAF (OWASP 3.2)</li>
+          <li>Network Security Groups (deny-all defaults)</li>
+          <li>Azure Firewall (traffic inspection)</li>
+          <li>No public IP on this VM</li>
+          <li>Azure Bastion for admin access</li>
+        </ul>
+        <p><a href="/api/items">View Items API</a></p>
+        <p><a href="/health">Health Check</a></p>
+      </body>
+      </html>
+      """
+
+      @app.route('/')
+      def home():
+          return render_template_string(HOME_PAGE)
+
+      @app.route('/health')
+      def health():
+          # Health endpoint for Application Gateway probe
+          return jsonify({
+              "status": "healthy",
+              "environment": "${environment}",
+              "timestamp": datetime.datetime.utcnow().isoformat()
+          }), 200
+
+      @app.route('/api/items', methods=['GET'])
+      def get_items():
+          return jsonify({"items": items, "count": len(items)}), 200
+
+      @app.route('/api/items', methods=['POST'])
+      def create_item():
+          data = request.get_json()
+          if not data or 'name' not in data:
+              return jsonify({"error": "name is required"}), 400
+          new_item = {
+              "id": len(items) + 1,
+              "name": data['name'],
+              "created": datetime.datetime.utcnow().isoformat()
+          }
+          items.append(new_item)
+          return jsonify(new_item), 201
+
+      @app.route('/admin')
+      def admin():
+          # Admin panel - will be protected by Entra ID in Phase 5
+          return jsonify({
+              "message": "Admin panel",
+              "note": "This endpoint will require Entra ID authentication in Phase 5",
+              "items_count": len(items)
+          }), 200
+
+      if __name__ == '__main__':
+          app.run(host='0.0.0.0', port=8080, debug=False)
+
+  # Systemd service to keep Flask running
+  - path: /etc/systemd/system/webapp.service
+    content: |
+      [Unit]
+      Description=Azure Security Lab Flask Web Application
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=www-data
+      WorkingDirectory=/opt/webapp
+      Environment=FLASK_ENV=production
+      ExecStart=/opt/webapp/venv/bin/python app.py
+      Restart=always
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  # Set up Python virtual environment
+  - mkdir -p /opt/webapp
+  - python3 -m venv /opt/webapp/venv
+  - /opt/webapp/venv/bin/pip install flask gunicorn
+
+  # Set permissions
+  - chown -R www-data:www-data /opt/webapp
+
+  # Enable and start the web application service
+  - systemctl daemon-reload
+  - systemctl enable webapp
+  - systemctl start webapp
+
+  # Log completion
+  - echo "cloud-init complete - webapp started" >> /var/log/webapp-init.log

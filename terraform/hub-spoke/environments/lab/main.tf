@@ -142,3 +142,25 @@ module "firewall" {
 
   depends_on = [module.hub_network, module.spoke_network]
 }
+
+# ============================================================
+# Web Application VM Module
+# Deploys Flask web application on Ubuntu 22.04
+# No public IP - access via Bastion only
+# ADR-004: docs/adr/ADR-004-web-application-vm.md
+# ============================================================
+
+module "vm_app" {
+  count  = var.deploy_vm_app ? 1 : 0
+  source = "../../modules/vm-app"
+
+  resource_group_name = azurerm_resource_group.spoke.name
+  location            = var.location
+  environment         = var.environment
+  app_subnet_id       = module.spoke_network.app_subnet_id
+  admin_username      = var.vm_admin_username
+  ssh_public_key      = var.vm_ssh_public_key
+  tags                = local.common_tags
+
+  depends_on = [module.spoke_network, module.firewall]
+}

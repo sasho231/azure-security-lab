@@ -80,3 +80,20 @@ variable "data_subnet_cidr" {
   type        = string
   default     = "10.1.4.0/24"
 }
+
+variable "deploy_vm_app" {
+  description = "Deploy web application VM - costs ~$0.04/hour"
+  type        = bool
+  default     = false
+}
+
+variable "vm_admin_username" {
+  description = "Admin username for VMs"
+  type        = string
+  default     = "azureuser"
+}
+
+variable "vm_ssh_public_key" {
+  description = "SSH public key for VM authentication"
+  type        = string
+}
