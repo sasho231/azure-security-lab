@@ -62,3 +62,21 @@ variable "deploy_bastion" {
   type        = bool
   default     = false
 }
+
+variable "appgw_subnet_cidr" {
+  description = "CIDR for Application Gateway subnet"
+  type        = string
+  default     = "10.1.2.0/24"
+}
+
+variable "app_subnet_cidr" {
+  description = "CIDR for web application subnet"
+  type        = string
+  default     = "10.1.3.0/24"
+}
+
+variable "data_subnet_cidr" {
+  description = "CIDR for database Private Endpoint subnet"
+  type        = string
+  default     = "10.1.4.0/24"
+}

@@ -74,6 +74,10 @@ module "spoke_network" {
   location             = var.location
   environment          = var.environment
   spoke_vnet_cidr      = var.spoke_vnet_cidr
+  appgw_subnet_cidr    = var.appgw_subnet_cidr
+  app_subnet_cidr      = var.app_subnet_cidr
+  data_subnet_cidr     = var.data_subnet_cidr
+  bastion_subnet_cidr  = var.bastion_subnet_cidr
   workload_subnet_cidr = var.workload_subnet_cidr
   tags                 = local.common_tags
 
