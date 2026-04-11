@@ -39,3 +39,9 @@ variable "firewall_management_subnet_cidr" {
   type        = string
   default     = "10.0.4.0/26"
 }
+
+variable "deploy_bastion" {
+  description = "Deploy Azure Bastion - costs ~$0.19/hour. Set false to destroy."
+  type        = bool
+  default     = false
+}

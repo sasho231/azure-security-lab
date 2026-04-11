@@ -5,7 +5,6 @@
 # MCSB: NS-1, NS-2 - network segmentation and controls
 # ============================================================
 
-# Hub Virtual Network
 resource "azurerm_virtual_network" "hub" {
   name                = "vnet-hub-${var.environment}"
   location            = var.location
@@ -17,8 +16,8 @@ resource "azurerm_virtual_network" "hub" {
 
 # ============================================================
 # Subnets
-# AzureFirewallSubnet and AzureBastionSubnet names are
-# fixed by Azure - they cannot be renamed
+# AzureFirewallSubnet, AzureFirewallManagementSubnet and
+# AzureBastionSubnet names are fixed by Azure
 # ============================================================
 
 resource "azurerm_subnet" "firewall" {
@@ -26,6 +25,13 @@ resource "azurerm_subnet" "firewall" {
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.hub.name
   address_prefixes     = [var.firewall_subnet_cidr]
+}
+
+resource "azurerm_subnet" "firewall_management" {
+  name                 = "AzureFirewallManagementSubnet"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.hub.name
+  address_prefixes     = [var.firewall_management_subnet_cidr]
 }
 
 resource "azurerm_subnet" "bastion" {
@@ -37,8 +43,8 @@ resource "azurerm_subnet" "bastion" {
 
 # ============================================================
 # NSG for Bastion Subnet
-# Rules kept even without Bastion deployed
-# Ready for when Bastion is redeployed
+# Required rules defined by Microsoft for Bastion to function
+# MCSB NS-1: implement security boundaries
 # ============================================================
 
 resource "azurerm_network_security_group" "bastion" {
@@ -163,43 +169,35 @@ resource "azurerm_subnet_network_security_group_association" "bastion" {
 }
 
 # ============================================================
-# Bastion Host - COMMENTED OUT for cost saving
-# Redeploy when needed by uncommenting and running
-# terraform apply - takes ~15 minutes to provision
-# Cost: ~$0.19/hour (~$4.50/day) when running
+# Azure Bastion
+# Controlled by deploy_bastion variable
+# Set to true to deploy, false to destroy and save cost
+# Cost: ~$0.19/hour when running
 # ============================================================
 
-# resource "azurerm_public_ip" "bastion" {
-#   name                = "pip-bastion-${var.environment}"
-#   location            = var.location
-#   resource_group_name = var.resource_group_name
-#   allocation_method   = "Static"
-#   sku                 = "Standard"
-#   tags                = var.tags
-# }
+resource "azurerm_public_ip" "bastion" {
+  count               = var.deploy_bastion ? 1 : 0
+  name                = "pip-bastion-${var.environment}"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  allocation_method   = "Static"
+  sku                 = "Standard"
 
-# resource "azurerm_bastion_host" "hub" {
-#   name                = "bas-hub-${var.environment}"
-#   location            = var.location
-#   resource_group_name = var.resource_group_name
-#   sku                 = "Basic"
-#   ip_configuration {
-#     name                 = "configuration"
-#     subnet_id            = azurerm_subnet.bastion.id
-#     public_ip_address_id = azurerm_public_ip.bastion.id
-#   }
-#   tags = var.tags
-# }
+  tags = var.tags
+}
 
-# ============================================================
-# Azure Firewall Management Subnet
-# Required for Basic SKU Firewall only
-# Name is fixed by Azure - cannot be changed
-# ============================================================
+resource "azurerm_bastion_host" "hub" {
+  count               = var.deploy_bastion ? 1 : 0
+  name                = "bas-hub-${var.environment}"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  sku                 = "Basic"
 
-resource "azurerm_subnet" "firewall_management" {
-  name                 = "AzureFirewallManagementSubnet"
-  resource_group_name  = var.resource_group_name
-  virtual_network_name = azurerm_virtual_network.hub.name
-  address_prefixes     = [var.firewall_management_subnet_cidr]
+  ip_configuration {
+    name                 = "configuration"
+    subnet_id            = azurerm_subnet.bastion.id
+    public_ip_address_id = azurerm_public_ip.bastion[0].id
+  }
+
+  tags = var.tags
 }

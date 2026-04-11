@@ -59,6 +59,7 @@ module "hub_network" {
   firewall_subnet_cidr = var.firewall_subnet_cidr
   bastion_subnet_cidr  = var.bastion_subnet_cidr
   tags                = local.common_tags
+  deploy_bastion      = var.deploy_bastion
 
   depends_on = [azurerm_resource_group.hub]
 }
