@@ -56,6 +56,13 @@ architecture skills across IaC, DevSecOps, Zero Trust, and CSPM.
     ├── snet-app-lab              10.1.3.0/24  Web application
     └── snet-data-lab             10.1.4.0/24  Database Private Endpoint
 
+## Deployed Workloads
+
+| Resource | Location | Details |
+|----------|----------|---------|
+| vm-app-lab | snet-app-lab 10.1.3.4 | Ubuntu 22.04, D2s_v3, Flask app on port 8080 |
+| Flask app | vm-app-lab | Health: /health, API: /api/items, Admin: /admin |
+
 ## Traffic Flows
 
 ### User Traffic (North-South)
@@ -209,7 +216,7 @@ Estimated idle cost: ~$0.01/month. Active cost: ~$0.53/hour.
 |-------|-------|--------|
 | 1 | Foundation - IaC discipline, CAF structure, CI/CD pipeline | ✅ Complete |
 | 2 | Networking - Hub-spoke, Firewall, Bastion, subnets, NSGs | ✅ Complete |
-| 3 | DevSecOps - Security gates, OPA policy, shift-left enforcement | ⬜ Planned |
+| 3 | DevSecOps - Security gates, OPA policy, shift-left enforcement | 🔄 In Progress |
 | 4 | CSPM - Defender for Cloud, custom Azure Policy, MCSB hardening | ⬜ Planned |
 | 5 | Zero Trust - Entra PIM, Conditional Access, Entra Private Access | ⬜ Planned |
 | 6 | Sentinel - Workspace as code, detection pipeline, SOAR automation | ⬜ Planned |
