@@ -33,3 +33,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "firewall_management_subnet_cidr" {
+  description = "CIDR for AzureFirewallManagementSubnet - required for Basic SKU"
+  type        = string
+  default     = "10.0.4.0/26"
+}

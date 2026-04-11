@@ -44,3 +44,21 @@ variable "workload_subnet_cidr" {
   type        = string
   default     = "10.1.1.0/24"
 }
+
+variable "firewall_management_subnet_cidr" {
+  description = "CIDR for AzureFirewallManagementSubnet"
+  type        = string
+  default     = "10.0.4.0/26"
+}
+
+variable "deploy_firewall" {
+  description = "Deploy Azure Firewall - costs ~$0.34/hour. Set false to destroy."
+  type        = bool
+  default     = true
+}
+
+variable "deploy_bastion" {
+  description = "Deploy Azure Bastion - costs ~$0.19/hour. Set false to destroy."
+  type        = bool
+  default     = false
+}

@@ -37,9 +37,8 @@ resource "azurerm_subnet" "bastion" {
 
 # ============================================================
 # NSG for Bastion Subnet
-# Azure Bastion requires specific inbound/outbound rules
-# These are the minimum required rules from Microsoft docs
-# MCSB NS-1: implement security boundaries
+# Rules kept even without Bastion deployed
+# Ready for when Bastion is redeployed
 # ============================================================
 
 resource "azurerm_network_security_group" "bastion" {
@@ -47,7 +46,6 @@ resource "azurerm_network_security_group" "bastion" {
   location            = var.location
   resource_group_name = var.resource_group_name
 
-  # Required inbound: HTTPS from internet to Bastion
   security_rule {
     name                       = "AllowHttpsInbound"
     priority                   = 100
@@ -60,7 +58,6 @@ resource "azurerm_network_security_group" "bastion" {
     destination_address_prefix = "*"
   }
 
-  # Required inbound: Gateway Manager
   security_rule {
     name                       = "AllowGatewayManagerInbound"
     priority                   = 110
@@ -73,7 +70,6 @@ resource "azurerm_network_security_group" "bastion" {
     destination_address_prefix = "*"
   }
 
-  # Required inbound: Azure Load Balancer
   security_rule {
     name                       = "AllowAzureLoadBalancerInbound"
     priority                   = 120
@@ -86,7 +82,6 @@ resource "azurerm_network_security_group" "bastion" {
     destination_address_prefix = "*"
   }
 
-  # Required inbound: Bastion host communication
   security_rule {
     name                       = "AllowBastionHostCommunicationInbound"
     priority                   = 130
@@ -99,7 +94,6 @@ resource "azurerm_network_security_group" "bastion" {
     destination_address_prefix = "VirtualNetwork"
   }
 
-  # Deny all other inbound
   security_rule {
     name                       = "DenyAllInbound"
     priority                   = 4096
@@ -112,7 +106,6 @@ resource "azurerm_network_security_group" "bastion" {
     destination_address_prefix = "*"
   }
 
-  # Required outbound: SSH and RDP to VMs
   security_rule {
     name                       = "AllowSshRdpOutbound"
     priority                   = 100
@@ -125,7 +118,6 @@ resource "azurerm_network_security_group" "bastion" {
     destination_address_prefix = "VirtualNetwork"
   }
 
-  # Required outbound: Azure Cloud
   security_rule {
     name                       = "AllowAzureCloudOutbound"
     priority                   = 110
@@ -138,7 +130,6 @@ resource "azurerm_network_security_group" "bastion" {
     destination_address_prefix = "AzureCloud"
   }
 
-  # Required outbound: Bastion host communication
   security_rule {
     name                       = "AllowBastionHostCommunicationOutbound"
     priority                   = 120
@@ -151,7 +142,6 @@ resource "azurerm_network_security_group" "bastion" {
     destination_address_prefix = "VirtualNetwork"
   }
 
-  # Deny all other outbound
   security_rule {
     name                       = "DenyAllOutbound"
     priority                   = 4096
@@ -167,49 +157,49 @@ resource "azurerm_network_security_group" "bastion" {
   tags = var.tags
 }
 
-# Associate NSG with Bastion subnet
 resource "azurerm_subnet_network_security_group_association" "bastion" {
   subnet_id                 = azurerm_subnet.bastion.id
   network_security_group_id = azurerm_network_security_group.bastion.id
 }
 
 # ============================================================
-# Public IP for Azure Bastion
-# Bastion requires a Standard SKU static public IP
-# This is the ONLY public IP in the entire lab
+# Bastion Host - COMMENTED OUT for cost saving
+# Redeploy when needed by uncommenting and running
+# terraform apply - takes ~15 minutes to provision
+# Cost: ~$0.19/hour (~$4.50/day) when running
 # ============================================================
 
-resource "azurerm_public_ip" "bastion" {
-  name                = "pip-bastion-${var.environment}"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  allocation_method   = "Static"
-  sku                 = "Standard"
+# resource "azurerm_public_ip" "bastion" {
+#   name                = "pip-bastion-${var.environment}"
+#   location            = var.location
+#   resource_group_name = var.resource_group_name
+#   allocation_method   = "Static"
+#   sku                 = "Standard"
+#   tags                = var.tags
+# }
 
-  tags = var.tags
+# resource "azurerm_bastion_host" "hub" {
+#   name                = "bas-hub-${var.environment}"
+#   location            = var.location
+#   resource_group_name = var.resource_group_name
+#   sku                 = "Basic"
+#   ip_configuration {
+#     name                 = "configuration"
+#     subnet_id            = azurerm_subnet.bastion.id
+#     public_ip_address_id = azurerm_public_ip.bastion.id
+#   }
+#   tags = var.tags
+# }
+
+# ============================================================
+# Azure Firewall Management Subnet
+# Required for Basic SKU Firewall only
+# Name is fixed by Azure - cannot be changed
+# ============================================================
+
+resource "azurerm_subnet" "firewall_management" {
+  name                 = "AzureFirewallManagementSubnet"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.hub.name
+  address_prefixes     = [var.firewall_management_subnet_cidr]
 }
-
-# ============================================================
-# Azure Bastion
-# Secure browser-based SSH/RDP - no public IPs on VMs
-# Basic SKU is sufficient for lab use
-# STOP THIS WHEN NOT IN USE - costs ~$0.19/hour
-# ============================================================
-
-resource "azurerm_bastion_host" "hub" {
-  name                = "bas-hub-${var.environment}"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  sku                 = "Basic"
-
-  ip_configuration {
-    name                 = "configuration"
-    subnet_id            = azurerm_subnet.bastion.id
-    public_ip_address_id = azurerm_public_ip.bastion.id
-  }
-
-  tags = var.tags
-}
-# triggered
-
-

@@ -113,3 +113,27 @@ locals {
     Framework   = "CAF"
   }
 }
+
+# ============================================================
+# Firewall Module
+# Deploys Azure Firewall, Policy, and UDR
+# ADR-003: centralised traffic inspection
+# COMMENT OUT to destroy Firewall and save cost
+# ============================================================
+
+module "firewall" {
+  count  = var.deploy_firewall ? 1 : 0
+  source = "../../modules/firewall"
+
+  resource_group_name = azurerm_resource_group.hub.name
+  location            = var.location
+  environment         = var.environment
+  firewall_subnet_id            = module.hub_network.firewall_subnet_id
+  workload_subnet_id  = module.spoke_network.workload_subnet_id
+  hub_vnet_cidr       = var.hub_vnet_cidr
+  spoke_vnet_cidr                = var.spoke_vnet_cidr
+  firewall_management_subnet_id = module.hub_network.firewall_management_subnet_id
+  tags                = local.common_tags
+
+  depends_on = [module.hub_network, module.spoke_network]
+}

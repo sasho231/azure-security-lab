@@ -17,3 +17,8 @@ output "bastion_subnet_id" {
   description = "Bastion subnet ID"
   value       = azurerm_subnet.bastion.id
 }
+
+output "firewall_management_subnet_id" {
+  description = "Firewall management subnet ID - required for Basic SKU"
+  value       = azurerm_subnet.firewall_management.id
+}
