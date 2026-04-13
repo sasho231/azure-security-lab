@@ -57,8 +57,7 @@ jobs:
           echo "============================================"
           checkov -d infra/ \
             --framework bicep \
-            --output cli \
-            --soft-fail
+            --output cli
           echo "============================================"
           echo "Checkov scan complete"
           echo "============================================"
