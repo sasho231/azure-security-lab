@@ -52,7 +52,7 @@ resource "azurerm_linux_virtual_machine" "app" {
   name                = "vm-app-${var.environment}"
   resource_group_name = var.resource_group_name
   location            = var.location
-  size                = "Standard_D2s_v3"
+  size                = "Standard_D2as_v4"
 
   # Admin account - SSH key only, no password
   # Password authentication disabled for security
