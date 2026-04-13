@@ -29,6 +29,9 @@ cd "$(dirname "$0")/../terraform/hub-spoke/environments/lab"
 sed -i 's/deploy_firewall = false/deploy_firewall = true/' lab.auto.tfvars
 sed -i 's/deploy_bastion = false/deploy_bastion = true/' lab.auto.tfvars
 
+echo "Starting VM..."
+az vm start --resource-group rg-spoke-lab --name vm-app-lab --no-wait
+
 echo "Deploying Firewall and Bastion..."
 echo "This takes 15-20 minutes..."
 terraform apply -auto-approve

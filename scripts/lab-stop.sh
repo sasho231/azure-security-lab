@@ -22,6 +22,9 @@ cd "$(dirname "$0")/../terraform/hub-spoke/environments/lab"
 sed -i 's/deploy_firewall = true/deploy_firewall = false/' lab.auto.tfvars
 sed -i 's/deploy_bastion = true/deploy_bastion = false/' lab.auto.tfvars
 
+echo "Stopping VM..."
+az vm deallocate --resource-group rg-spoke-lab --name vm-app-lab --no-wait
+
 echo "Destroying Firewall and Bastion..."
 terraform apply -auto-approve
 
