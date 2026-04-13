@@ -97,3 +97,9 @@ variable "vm_ssh_public_key" {
   description = "SSH public key for VM authentication"
   type        = string
 }
+
+variable "deploy_appgw" {
+  description = "Deploy Application Gateway + WAF - costs ~$0.26/hour"
+  type        = bool
+  default     = false
+}

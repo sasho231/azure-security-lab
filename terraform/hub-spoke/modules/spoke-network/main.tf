@@ -173,17 +173,20 @@ resource "azurerm_network_security_group" "appgw" {
     destination_address_prefix = var.app_subnet_cidr
   }
 
-  # Deny all other outbound
+  # Required for App Gateway v2 management traffic
+  # App Gateway v2 requires unrestricted outbound internet
+  # Cannot have DenyAllOutbound rule on this subnet
+  # This is an Azure platform requirement for WAF_v2 SKU
   security_rule {
-    name                       = "DenyAllOutbound"
-    priority                   = 4096
+    name                       = "AllowInternetOutbound"
+    priority                   = 110
     direction                  = "Outbound"
-    access                     = "Deny"
+    access                     = "Allow"
     protocol                   = "*"
     source_port_range          = "*"
     destination_port_range     = "*"
     source_address_prefix      = "*"
-    destination_address_prefix = "*"
+    destination_address_prefix = "Internet"
   }
 
   tags = var.tags

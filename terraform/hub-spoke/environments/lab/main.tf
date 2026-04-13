@@ -165,3 +165,23 @@ module "vm_app" {
 
   depends_on = [module.spoke_network, module.firewall]
 }
+
+# ============================================================
+# Application Gateway + WAF Module
+# Internet-facing ingress with OWASP 3.2 WAF protection
+# ADR-005: docs/adr/ADR-005-application-gateway-waf.md
+# ============================================================
+
+module "app_gateway" {
+  count  = var.deploy_appgw ? 1 : 0
+  source = "../../modules/app-gateway"
+
+  resource_group_name = azurerm_resource_group.spoke.name
+  location            = var.location
+  environment         = var.environment
+  appgw_subnet_id     = module.spoke_network.appgw_subnet_id
+  backend_vm_ip       = module.vm_app[0].vm_private_ip
+  tags                = local.common_tags
+
+  depends_on = [module.spoke_network, module.vm_app]
+}
