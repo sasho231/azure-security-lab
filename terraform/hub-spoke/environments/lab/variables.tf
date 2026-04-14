@@ -121,3 +121,9 @@ variable "key_vault_suffix" {
   type        = string
   default     = "sasho231"
 }
+
+variable "app_service_suffix" {
+  description = "Unique suffix for App Service name"
+  type        = string
+  default     = "sasho231lab"
+}
