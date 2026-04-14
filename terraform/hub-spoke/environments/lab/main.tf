@@ -211,6 +211,7 @@ module "key_vault" {
   location                         = var.location
   suffix                           = var.key_vault_suffix
   vm_managed_identity_principal_id = module.vm_app[0].managed_identity_principal_id
+  allowed_ip_ranges                = var.keyvault_allowed_ips
   data_subnet_id                   = module.spoke_network.data_subnet_id
   hub_vnet_id                      = module.hub_network.hub_vnet_id
   spoke_vnet_id                    = module.spoke_network.spoke_vnet_id
@@ -220,3 +221,18 @@ module "key_vault" {
 }
 
 # App Service: skipped - quota restrictions on pay-as-you-go subscription
+
+# ============================================================
+# Terraform State Storage Hardening
+# Fixes TLS and network settings on state storage account
+# MCSB: DP-3, NS-2
+# ============================================================
+
+module "terraform_state" {
+  source = "../../modules/terraform-state"
+
+  storage_account_name = "stterraformstate10323"
+  resource_group_name  = "rg-terraform-state"
+  location             = var.location
+  tags                 = local.common_tags
+}

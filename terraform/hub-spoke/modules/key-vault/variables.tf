@@ -35,3 +35,9 @@ variable "spoke_vnet_id" {
   description = "Spoke VNet ID for Private DNS Zone link"
   type        = string
 }
+
+variable "allowed_ip_ranges" {
+  description = "IP ranges allowed to access Key Vault (admin workstations, CI/CD runners)"
+  type        = list(string)
+  default     = []
+}

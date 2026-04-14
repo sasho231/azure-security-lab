@@ -127,3 +127,9 @@ variable "app_service_suffix" {
   type        = string
   default     = "sasho231lab"
 }
+
+variable "keyvault_allowed_ips" {
+  description = "IP ranges allowed to access Key Vault"
+  type        = list(string)
+  default     = []
+}

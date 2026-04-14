@@ -34,9 +34,12 @@ resource "azurerm_key_vault" "main" {
 
   # Network access - deny public, allow via Private Endpoint
   # MCSB NS-2: secure cloud services with network controls
+  # ip_rules allows Terraform management from admin workstation
+  # In production this would be a jump host or managed runner IP
   network_acls {
     default_action = "Deny"
     bypass         = "AzureServices"
+    ip_rules       = var.allowed_ip_ranges
   }
 
   tags = var.tags
