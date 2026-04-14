@@ -185,3 +185,33 @@ module "app_gateway" {
 
   depends_on = [module.spoke_network, module.vm_app]
 }
+
+# ============================================================
+# Defender for Cloud Module
+# CSPM and CWPP across all workloads
+# ADR-006: docs/adr/ADR-006-defender-for-cloud-cspm.md
+# ============================================================
+
+module "defender" {
+  source = "../../modules/defender"
+
+  security_contact_email = var.security_contact_email
+  enable_defender_paid   = var.enable_defender_paid
+}
+
+# ============================================================
+# Key Vault Module
+# Secure secrets management, Defender for Key Vault coverage
+# ============================================================
+
+module "key_vault" {
+  source = "../../modules/key-vault"
+
+  resource_group_name              = azurerm_resource_group.spoke.name
+  location                         = var.location
+  suffix                           = var.key_vault_suffix
+  vm_managed_identity_principal_id = module.vm_app[0].managed_identity_principal_id
+  tags                             = local.common_tags
+
+  depends_on = [module.vm_app]
+}

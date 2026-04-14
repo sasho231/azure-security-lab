@@ -103,3 +103,21 @@ variable "deploy_appgw" {
   type        = bool
   default     = false
 }
+
+variable "security_contact_email" {
+  description = "Email for security alerts"
+  type        = string
+  default     = "kakvigivurshish225@outlook.com"
+}
+
+variable "enable_defender_paid" {
+  description = "Enable paid Defender plans"
+  type        = bool
+  default     = false
+}
+
+variable "key_vault_suffix" {
+  description = "Unique suffix for Key Vault name"
+  type        = string
+  default     = "sasho231"
+}
