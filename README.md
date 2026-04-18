@@ -1,7 +1,7 @@
 # Azure Security Lab
 
 A CAF-aligned Azure security lab built to develop and demonstrate cloud security
-architecture skills across IaC, DevSecOps, Zero Trust, and CSPM.
+architecture skills across IaC, DevSecOps, Zero Trust, CSPM, CWPP, and CNAPP.
 
 ## Frameworks
 
@@ -16,14 +16,18 @@ architecture skills across IaC, DevSecOps, Zero Trust, and CSPM.
 
 | Tool | Category | Purpose |
 |------|----------|---------|
-| Bicep | IaC | Microsoft-native IaC language for Azure. Compiles to ARM JSON. All resources defined as code — nothing created via portal. |
-| Terraform | IaC | HashiCorp IaC tool used alongside Bicep. Preferred in multi-cloud engagements and where clients already use it. |
-| Azure CLI | Deployment | Used to authenticate to Azure, run deployments, and manage resources from the terminal. |
-| Checkov | Security Scanning | Static security scanner for IaC files. Checks Bicep and Terraform against CIS, MCSB and NIST controls before deployment. |
-| tfsec | Security Scanning | Terraform-specific security scanner. 32 checks passed on current code. |
-| GitHub Actions | CI/CD | Pipeline platform built into GitHub. Runs automated checks on every push. |
-| GitHub Advanced Security | Supply Chain | Secret scanning, Dependabot, push protection. Free for public repos. |
-| Workload Identity Federation | Authentication | Passwordless GitHub Actions to Azure authentication via OIDC. No secrets stored anywhere. |
+| Bicep | IaC | Microsoft-native IaC for Azure. Compiles to ARM JSON. Nothing created via portal. |
+| Terraform | IaC | HashiCorp IaC. Preferred in multi-cloud engagements. |
+| Azure CLI | Deployment | Authenticate to Azure, run deployments, manage resources. |
+| Checkov | Security Scanning | Static IaC scanner. Checks Bicep and Terraform against MCSB and CIS. |
+| tfsec | Security Scanning | Terraform-specific scanner. 74 checks passed, 0 findings. |
+| OPA/Conftest | Policy as Code | Custom security policies in CI/CD pipeline. 5 rules mapped to MCSB. |
+| GitHub Actions | CI/CD | Automated security gates on every push. |
+| GitHub Advanced Security | Supply Chain | Secret scanning, Dependabot, push protection. |
+| Workload Identity Federation | Authentication | Passwordless Azure auth from GitHub via OIDC. No secrets stored. |
+| kubectl | Containers | Kubernetes CLI for AKS management. |
+| Helm | Containers | Kubernetes package manager. Used to deploy Falco. |
+| Falco | Runtime Security | Kernel-level threat detection for Kubernetes via eBPF. |
 
 ## Architecture Decision Records
 
@@ -32,6 +36,10 @@ architecture skills across IaC, DevSecOps, Zero Trust, and CSPM.
 | [ADR-001](docs/adr/ADR-001-management-group-structure.md) | CAF-aligned management group hierarchy | Accepted |
 | [ADR-002](docs/adr/ADR-002-hub-spoke-network-topology.md) | Hub-spoke network topology | Accepted |
 | [ADR-003](docs/adr/ADR-003-azure-firewall-and-routing.md) | Azure Firewall and traffic routing | Accepted |
+| [ADR-004](docs/adr/ADR-004-web-application-vm.md) | Web application VM deployment | Accepted |
+| [ADR-005](docs/adr/ADR-005-application-gateway-waf.md) | Application Gateway with WAF | Accepted |
+| [ADR-006](docs/adr/ADR-006-defender-for-cloud-cspm.md) | Defender for Cloud CSPM and CWPP | Accepted |
+| [ADR-007](docs/adr/ADR-007-aks-and-container-security.md) | AKS and container security | Accepted |
 
 ## Management Group Hierarchy
 
@@ -53,42 +61,37 @@ architecture skills across IaC, DevSecOps, Zero Trust, and CSPM.
     Spoke VNet (10.1.0.0/16)
     ├── snet-workload-lab         10.1.1.0/24  General workload
     ├── snet-appgw-lab            10.1.2.0/24  Application Gateway + WAF
-    ├── snet-app-lab              10.1.3.0/24  Web application
-    └── snet-data-lab             10.1.4.0/24  Database Private Endpoint
+    ├── snet-app-lab              10.1.3.0/24  Web application + AKS nodes
+    └── snet-data-lab             10.1.4.0/24  Private Endpoints
 
 ## Deployed Workloads
 
 | Resource | Location | Details |
 |----------|----------|---------|
-| vm-app-lab | snet-app-lab 10.1.3.4 | Ubuntu 22.04, D2s_v3, Flask app on port 8080 |
+| vm-app-lab | snet-app-lab 10.1.3.4 | Ubuntu 22.04, D2as_v4, Flask app on port 8080 |
 | Flask app | vm-app-lab | Health: /health, API: /api/items, Admin: /admin |
+| kv-lab-sasho231 | rg-spoke-lab | Key Vault, RBAC auth, purge protection, 2 secrets |
+| aks-lab-lab | rg-spoke-lab | AKS v1.34, Standard SKU, Falco installed (deploy_aks=true) |
+| acrlabsasho231 | rg-spoke-lab | Azure Container Registry Basic SKU (deploy_aks=true) |
 
 ## Traffic Flows
 
 ### User Traffic (North-South)
 
-    Internet (HTTPS 443)
+    Internet (HTTP 80)
           │
           ▼
     Application Gateway + WAF           snet-appgw-lab 10.1.2.0/24
-    WAF: OWASP Top 10, SQLi, XSS
-    Inbound:  443, 80 from Internet
-              65200-65535 from GatewayManager
-    Outbound: 8080 to snet-app-lab only
+    WAF: OWASP 3.2 Prevention mode
+    XSS → 403, SQLi → dropped
           │
           ▼ 8080
-    Web Application                     snet-app-lab 10.1.3.0/24
-    Inbound:  8080 from snet-appgw-lab only
-              22 from AzureBastionSubnet only
-    Outbound: 5432 to snet-data-lab
-              443 to Internet (via Firewall)
-    Deny all: everything else
+    Web Application VM                  snet-app-lab 10.1.3.0/24
+    No public IP - Bastion access only
           │
-          ▼ 5432
-    Database Private Endpoint           snet-data-lab 10.1.4.0/24
-    Inbound:  5432 from snet-app-lab only
-    Outbound: denied
-    No public endpoint - ever
+          ▼
+    Key Vault (private endpoint)        snet-data-lab 10.1.4.0/24
+    RBAC authorization, purge protected
 
 ### Admin Access (Zero Trust)
 
@@ -96,7 +99,7 @@ architecture skills across IaC, DevSecOps, Zero Trust, and CSPM.
           │ HTTPS only
           ▼
     Azure Bastion                       AzureBastionSubnet 10.0.2.0/26
-          │ SSH 22 or RDP 3389
+          │ SSH 22
           ▼
     VM in snet-app-lab
     No public IP on any VM - ever
@@ -107,36 +110,14 @@ architecture skills across IaC, DevSecOps, Zero Trust, and CSPM.
           │
           ▼  UDR: 0.0.0.0/0 next-hop 10.0.1.4
     Azure Firewall fw-hub-lab           AzureFirewallSubnet 10.0.1.0/26
-    Application rules (FQDN):
-      ALLOW *.ubuntu.com, *.launchpad.net (Ubuntu updates)
-      ALLOW WindowsUpdate tag
-      ALLOW AzureKubernetesService tag
-    Network rules:
-      ALLOW DNS port 53 to 168.63.129.16
+    Application rules: Ubuntu updates, Azure services
+    Network rules: DNS port 53
     Threat intelligence: Alert mode
     Everything else: DENIED
-          │
-          ▼
-    Internet
 
 ## NSG Rules
 
-### nsg-bastion-lab
-
-| Direction | Priority | Rule | Port | Source/Dest | Action |
-|-----------|----------|------|------|-------------|--------|
-| Inbound | 100 | AllowHttpsInbound | 443 | Internet | Allow |
-| Inbound | 110 | AllowGatewayManager | 443 | GatewayManager | Allow |
-| Inbound | 120 | AllowAzureLoadBalancer | 443 | AzureLoadBalancer | Allow |
-| Inbound | 130 | AllowBastionHostComm | 8080,5701 | VirtualNetwork | Allow |
-| Inbound | 4096 | DenyAllInbound | * | * | Deny |
-| Outbound | 100 | AllowSshRdpOutbound | 22,3389 | VirtualNetwork | Allow |
-| Outbound | 110 | AllowAzureCloud | 443 | AzureCloud | Allow |
-| Outbound | 120 | AllowBastionHostComm | 8080,5701 | VirtualNetwork | Allow |
-| Outbound | 4096 | DenyAllOutbound | * | * | Deny |
-
 ### nsg-appgw-lab
-
 | Direction | Priority | Rule | Port | Source/Dest | Action |
 |-----------|----------|------|------|-------------|--------|
 | Inbound | 100 | AllowHttpsInbound | 443 | Internet | Allow |
@@ -145,10 +126,9 @@ architecture skills across IaC, DevSecOps, Zero Trust, and CSPM.
 | Inbound | 130 | AllowAzureLoadBalancer | * | AzureLoadBalancer | Allow |
 | Inbound | 4096 | DenyAllInbound | * | * | Deny |
 | Outbound | 100 | AllowToAppSubnet | 8080 | snet-app-lab | Allow |
-| Outbound | 4096 | DenyAllOutbound | * | * | Deny |
+| Outbound | 110 | AllowInternetOutbound | * | Internet | Allow |
 
 ### nsg-app-lab
-
 | Direction | Priority | Rule | Port | Source/Dest | Action |
 |-----------|----------|------|------|-------------|--------|
 | Inbound | 100 | AllowFromAppGateway | 8080 | snet-appgw-lab | Allow |
@@ -159,64 +139,88 @@ architecture skills across IaC, DevSecOps, Zero Trust, and CSPM.
 | Outbound | 4096 | DenyAllOutbound | * | * | Deny |
 
 ### nsg-data-lab
-
 | Direction | Priority | Rule | Port | Source/Dest | Action |
 |-----------|----------|------|------|-------------|--------|
 | Inbound | 100 | AllowFromAppSubnet | 5432 | snet-app-lab | Allow |
 | Inbound | 4096 | DenyAllInbound | * | * | Deny |
 | Outbound | 4096 | DenyAllOutbound | * | * | Deny |
 
-### nsg-workload-lab
+## Security Controls
 
-| Direction | Priority | Rule | Port | Source/Dest | Action |
-|-----------|----------|------|------|-------------|--------|
-| Inbound | 100 | AllowSshFromBastion | 22 | AzureBastionSubnet | Allow |
-| Inbound | 110 | AllowRdpFromBastion | 3389 | AzureBastionSubnet | Allow |
-| Inbound | 4096 | DenyAllInbound | * | * | Deny |
+### CWPP Coverage (Defender for Cloud)
+| Workload | Defender Plan | Status |
+|----------|--------------|--------|
+| VM (vm-app-lab) | Defender for Servers | Free tier enabled |
+| AKS (aks-lab-lab) | Defender for Containers | Free tier enabled |
+| Storage accounts | Defender for Storage | Free tier enabled |
+| Key Vault | Defender for Key Vault | Free tier enabled |
+| App Service | Defender for App Service | Free tier enabled |
+| ARM operations | Defender for ARM | Free tier enabled |
+
+### Custom Azure Policy Initiative (mg-lab-workloads)
+| Policy | MCSB Control | Effect |
+|--------|-------------|--------|
+| Require tags on resource groups | GV-1 | Deny |
+| Deny public blob access | DP-2 | Deny |
+| Require HTTPS on storage | DP-3 | Deny |
+| Deny public IP on VMs | NS-1 | Deny |
+
+### Falco Runtime Security (AKS)
+| Rule | MITRE Technique | Severity |
+|------|----------------|---------|
+| Terminal shell in container | T1059 | Notice |
+| Read sensitive file untrusted | T1555 | Warning |
+| Drop and execute new binary | TA0003 | Critical |
+| Container escape attempt | T1611 | Critical |
 
 ## CI/CD Pipelines
 
-### Bicep Pipeline (bicep-validate.yml)
-Triggers on every push to any branch and every PR to main.
+### Bicep Pipeline
+    Push/PR → bicep lint → bicep build → Checkov scan (blocks on findings)
+    Main only → az deployment validate
 
-    Push/PR
-        bicep lint          syntax and best practice checks
-        bicep build         compile to ARM JSON
-        Checkov scan        security misconfiguration scanning
-        [main only]
-        az deployment validate   confirm deployable against Azure
-
-### Terraform Pipeline (terraform-validate.yml)
-Triggers on every push that modifies terraform/ files.
-
-    Push/PR
-        terraform fmt       code formatting check
-        terraform validate  syntax validation
-        tfsec scan          security misconfiguration scanning (32 passed)
-        [main only]
-        terraform plan      show planned changes against Azure state
+### Terraform Pipeline
+    Push/PR → terraform fmt → terraform validate → tfsec scan (blocks on findings)
+                           → OPA/Conftest policy evaluation
+    Main only → terraform plan
 
 ## Cost Management
 
-| Resource | SKU | Cost | Status |
-|----------|-----|------|--------|
-| Management Groups | - | Free | Always on |
-| VNets + Subnets | - | Free | Always on |
-| NSGs | - | Free | Always on |
-| Azure Firewall | Basic | ~$0.34/hour | Stop when idle |
-| Azure Bastion | Basic | ~$0.19/hour | Stop when idle |
+| Resource | SKU | Cost | Control |
+|----------|-----|------|---------|
+| Azure Firewall | Basic | ~$0.34/hour | deploy_firewall flag |
+| Azure Bastion | Basic | ~$0.19/hour | deploy_bastion flag |
+| App Gateway + WAF | WAF_v2 | ~$0.26/hour | deploy_appgw flag |
+| AKS + ACR | Standard | ~$0.185/hour | deploy_aks flag |
+| VM D2as_v4 | Standard | ~$0.085/hour | az vm start/deallocate |
+| Key Vault | Standard | ~$0.03/month | Always on |
 | Storage (TF state) | LRS | ~$0.01/month | Always on |
 
-Use scripts/lab-start.sh and scripts/lab-stop.sh to control costs.
-Estimated idle cost: ~$0.01/month. Active cost: ~$0.53/hour.
+**Idle cost (all flags false, VM deallocated): ~$0.26/day**
+
+### Session Start
+    az vm start --resource-group rg-spoke-lab --name vm-app-lab
+    cd terraform/hub-spoke/environments/lab
+    sed -i 's/deploy_firewall = false/deploy_firewall = true/' lab.auto.tfvars
+    terraform apply
+
+### Session End (ALWAYS RUN)
+    az vm deallocate --resource-group rg-spoke-lab --name vm-app-lab --no-wait
+    cd terraform/hub-spoke/environments/lab
+    sed -i 's/deploy_firewall = true/deploy_firewall = false/' lab.auto.tfvars
+    sed -i 's/deploy_bastion = true/deploy_bastion = false/' lab.auto.tfvars
+    sed -i 's/deploy_appgw = true/deploy_appgw = false/' lab.auto.tfvars
+    sed -i 's/deploy_aks = true/deploy_aks = false/' lab.auto.tfvars
+    terraform apply
 
 ## Phases
 
 | Phase | Focus | Status |
 |-------|-------|--------|
-| 1 | Foundation - IaC discipline, CAF structure, CI/CD pipeline | ✅ Complete |
-| 2 | Networking - Hub-spoke, Firewall, Bastion, subnets, NSGs | ✅ Complete |
-| 3 | DevSecOps - Security gates, OPA policy, shift-left enforcement | ✅ Complete |
-| 4 | CSPM - Defender for Cloud, custom Azure Policy, MCSB hardening | ⬜ Planned |
-| 5 | Zero Trust - Entra PIM, Conditional Access, Entra Private Access | ⬜ Planned |
-| 6 | Sentinel - Workspace as code, detection pipeline, SOAR automation | ⬜ Planned |
+| 1 | Foundation - IaC, CAF structure, CI/CD, Workload Identity | ✅ Complete |
+| 2 | Networking - Hub-spoke, Firewall, Bastion, NSGs, Zero Trust | ✅ Complete |
+| 3 | DevSecOps - WAF, security gates, OPA policy, STRIDE threat model | ✅ Complete |
+| 4 | CSPM - Defender for Cloud, Azure Policy, Key Vault, MCSB hardening | ✅ Complete |
+| 5 | Containers - AKS, ACR, Falco runtime security, Defender for Containers | 🔄 In Progress |
+| 6 | Zero Trust Identity - Entra PIM, Conditional Access, Entra Private Access | ⬜ Planned |
+| 7 | Sentinel - Workspace as code, detection pipeline, SOAR automation | ⬜ Planned |
