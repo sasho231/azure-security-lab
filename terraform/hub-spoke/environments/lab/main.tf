@@ -260,12 +260,13 @@ module "log_analytics" {
 # ============================================================
 
 module "acr" {
+  count  = var.deploy_aks ? 1 : 0
   source = "../../modules/acr"
 
   acr_name                          = var.acr_name
   resource_group_name               = azurerm_resource_group.spoke.name
   location                          = var.location
-  aks_kubelet_identity_principal_id = module.aks.kubelet_identity_principal_id
+  aks_kubelet_identity_principal_id = module.aks[0].kubelet_identity_principal_id
   tags                              = local.common_tags
 
   depends_on = [module.aks]
@@ -279,6 +280,7 @@ module "acr" {
 # ============================================================
 
 module "aks" {
+  count  = var.deploy_aks ? 1 : 0
   source = "../../modules/aks"
 
   resource_group_name        = azurerm_resource_group.spoke.name

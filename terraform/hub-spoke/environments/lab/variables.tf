@@ -145,3 +145,9 @@ variable "kubernetes_version" {
   type        = string
   default     = "1.32.10"
 }
+
+variable "deploy_aks" {
+  description = "Deploy AKS cluster and ACR - costs ~$0.185/hour when running"
+  type        = bool
+  default     = false
+}
