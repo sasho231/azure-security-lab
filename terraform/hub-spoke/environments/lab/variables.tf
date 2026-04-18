@@ -133,3 +133,15 @@ variable "keyvault_allowed_ips" {
   type        = list(string)
   default     = []
 }
+
+variable "acr_name" {
+  description = "Azure Container Registry name (globally unique, alphanumeric only)"
+  type        = string
+  default     = "acrlabsasho231"
+}
+
+variable "kubernetes_version" {
+  description = "Kubernetes version for AKS"
+  type        = string
+  default     = "1.32.10"
+}

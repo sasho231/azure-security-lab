@@ -236,3 +236,58 @@ module "terraform_state" {
   location             = var.location
   tags                 = local.common_tags
 }
+
+# ============================================================
+# Log Analytics Workspace
+# Required for Defender for Containers and AKS monitoring
+# Reused as Sentinel workspace in Phase 7
+# ============================================================
+
+module "log_analytics" {
+  source = "../../modules/log-analytics"
+
+  resource_group_name = azurerm_resource_group.spoke.name
+  location            = var.location
+  environment         = var.environment
+  tags                = local.common_tags
+
+  depends_on = [azurerm_resource_group.spoke]
+}
+
+# ============================================================
+# Azure Container Registry
+# Image storage and scanning for containerised workloads
+# ============================================================
+
+module "acr" {
+  source = "../../modules/acr"
+
+  acr_name                          = var.acr_name
+  resource_group_name               = azurerm_resource_group.spoke.name
+  location                          = var.location
+  aks_kubelet_identity_principal_id = module.aks.kubelet_identity_principal_id
+  tags                              = local.common_tags
+
+  depends_on = [module.aks]
+}
+
+# ============================================================
+# AKS Cluster
+# Kubernetes for containerised workloads
+# Defender for Containers + Falco for CWPP
+# ADR-007: docs/adr/ADR-007-aks-and-container-security.md
+# ============================================================
+
+module "aks" {
+  source = "../../modules/aks"
+
+  resource_group_name        = azurerm_resource_group.spoke.name
+  location                   = var.location
+  environment                = var.environment
+  app_subnet_id              = module.spoke_network.app_subnet_id
+  log_analytics_workspace_id = module.log_analytics.workspace_id
+  kubernetes_version         = var.kubernetes_version
+  tags                       = local.common_tags
+
+  depends_on = [module.spoke_network, module.log_analytics]
+}
