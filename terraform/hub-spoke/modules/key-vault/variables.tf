@@ -20,24 +20,3 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
-
-variable "data_subnet_id" {
-  description = "Data subnet ID for Private Endpoint placement"
-  type        = string
-}
-
-variable "hub_vnet_id" {
-  description = "Hub VNet ID for Private DNS Zone link"
-  type        = string
-}
-
-variable "spoke_vnet_id" {
-  description = "Spoke VNet ID for Private DNS Zone link"
-  type        = string
-}
-
-variable "allowed_ip_ranges" {
-  description = "IP ranges allowed to access Key Vault (admin workstations, CI/CD runners)"
-  type        = list(string)
-  default     = []
-}

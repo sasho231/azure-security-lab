@@ -211,13 +211,9 @@ module "key_vault" {
   location                         = var.location
   suffix                           = var.key_vault_suffix
   vm_managed_identity_principal_id = module.vm_app[0].managed_identity_principal_id
-  allowed_ip_ranges                = var.keyvault_allowed_ips
-  data_subnet_id                   = module.spoke_network.data_subnet_id
-  hub_vnet_id                      = module.hub_network.hub_vnet_id
-  spoke_vnet_id                    = module.spoke_network.spoke_vnet_id
   tags                             = local.common_tags
 
-  depends_on = [module.vm_app, module.spoke_network, module.hub_network]
+  depends_on = [module.vm_app]
 }
 
 # App Service: skipped - quota restrictions on pay-as-you-go subscription
